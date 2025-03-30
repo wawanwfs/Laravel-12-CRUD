@@ -2,75 +2,144 @@ name: Deploy Laravel to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
   # Memungkinkan untuk menjalankan workflow secara manual dari tab Actions
   workflow_dispatch:
 
 jobs:
   laravel-deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
-      # Checkout kode repository
-      - uses: actions/checkout@v3
+    # Checkout kode repository
+    - uses: actions/checkout@v3
+    
+    # Setup PHP dengan versi yang sesuai untuk Laravel 12
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4.5'
+        extensions: mbstring, dom, fileinfo, mysql, gd, curl, zip, xml
+        tools: composer:v2
+    
+    # Install dependensi Composer
+    - name: Install Dependencies
+      run: composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader
+    
+    # Setup Node.js untuk kompilasi aset (jika menggunakan Vite/Laravel Mix)
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    # Install dependensi Node.js
+    - name: Install Node Dependencies
+      run: npm install
+      
+    # Build aset frontend
+    - name: Build Assets
+      run: npm run build
+    
+    # Buat file .env dari .env.example
+    - name: Create .env file
+      run: |
+        if [ -f ".env.example" ]; then
+          cp .env.example .env
+        else
+          # Buat file .env minimal jika tidak ada .env.example
+          echo "APP_NAME=Laravel" > .env
+          echo "APP_ENV=production" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "APP_URL=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> .env
+          echo "LOG_CHANNEL=stack" >> .env
+          echo "DB_CONNECTION=sqlite" >> .env
+          echo "CACHE_DRIVER=file" >> .env
+          echo "SESSION_DRIVER=file" >> .env
+          echo "QUEUE_CONNECTION=sync" >> .env
+        fi
+        
+    # Generate application key
+    - name: Generate Application Key
+      run: php artisan key:generate --force
+    
+    # Optimasi Laravel
+    - name: Optimize Laravel
+      run: |
+        php artisan optimize
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+      env:
+        # Tetapkan environment variables yang diperlukan
+        APP_ENV: production
+        APP_DEBUG: false
+        APP_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+    
+    # Buat direktori build dan kopikan konten public ke dalamnya
+    - name: Prepare Build Directory
+      run: |
+        # Buat struktur direktori yang diperlukan
+        mkdir -p build
+        
+        # Salin seluruh konten aplikasi Laravel ke build untuk referensi
+        cp -R app bootstrap config database public resources routes storage vendor composer.json composer.lock build/
+        
+        # Pastikan .htaccess ada di folder build
+        cp public/.htaccess build/ || touch build/.htaccess
+        
+        # Salin file index.php khusus ke folder build
+        cp public/index.php build/ || cat > build/index.php << 'EOL'
+<?php
+define('LARAVEL_START', microtime(true));
 
-      # Setup PHP dengan versi yang sesuai untuk Laravel 12
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4.5"
-          extensions: mbstring, dom, fileinfo, mysql, gd, curl, zip, xml
-          tools: composer:v2
+// Periksa apakah sedang berjalan di GitHub Pages
+$basePath = '/';
+if (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'github.io') !== false) {
+    // Ekstrak nama repository dari URL jika pada github.io
+    $uriParts = explode('/', $_SERVER['REQUEST_URI']);
+    if (count($uriParts) > 1) {
+        $basePath = '/' . $uriParts[1] . '/';
+    }
+}
 
-      # Install dependensi Composer
-      - name: Install Dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader
+// Register Composer autoloader
+require __DIR__ . '/vendor/autoload.php';
 
-      # Setup Node.js untuk kompilasi aset (jika menggunakan Vite/Laravel Mix)
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: "18"
+// Load environment variables
+if (file_exists(__DIR__ . '/.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+}
 
-      # Install dependensi Node.js
-      - name: Install Node Dependencies
-        run: npm install
+// Bootstrap Laravel application
+$app = require_once __DIR__ . '/bootstrap/app.php';
 
-      # Build aset frontend
-      - name: Build Assets
-        run: npm run build
+// Set public path
+$app->usePublicPath(__DIR__);
 
-      # Generate application key
-      - name: Generate Application Key
-        run: php artisan key:generate --force
+// Run the application
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-      # Optimasi Laravel
-      - name: Optimize Laravel
-        run: |
-          php artisan optimize
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
+$response = $kernel->handle(
+    $request = Illuminate\Http\Request::capture()
+)->send();
 
-      # Buat direktori build dan kopikan konten public ke dalamnya
-      - name: Prepare Build Directory
-        run: |
-          mkdir -p build
-          cp -R public/* build/
-          cp public/.htaccess build/ || true
-          # Buat file index.php yang mengarah ke folder public
-          echo '<?php include_once("index.html");' > build/index.php
-
-      # Buat file .nojekyll untuk menghindari pemrosesan Jekyll
-      - name: Create .nojekyll file
-        run: touch build/.nojekyll
-
-      # Deploy ke GitHub Pages
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: build
-          branch: gh-pages
-          clean: true
+$kernel->terminate($request, $response);
+EOL
+        
+        # Salin .env ke build directory
+        cp .env build/
+        
+    # Buat file .nojekyll untuk menghindari pemrosesan Jekyll
+    - name: Create .nojekyll file
+      run: touch build/.nojekyll
+    
+    # Deploy ke GitHub Pages
+    - name: Deploy to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: build
+        branch: gh-pages
+        clean: true
