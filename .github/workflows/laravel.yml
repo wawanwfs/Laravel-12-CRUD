@@ -1,185 +1,64 @@
-name: Laravel 12 with SQLite Deploy to GitHub Pages
+name: Laravel 12 to GitHub Pages (No Jekyll)
 
-# Tentukan kapan workflow ini akan dijalankan
+# Jalankan workflow saat push ke branch main atau secara manual
 on:
   push:
-    branches: [ main ]  # Jalankan saat push ke branch main
+    branches: [ main ]
   pull_request:
-    branches: [ main ]  # Jalankan saat ada pull request ke branch main
-  # Memungkinkan menjalankan workflow secara manual dari tab Actions
-  workflow_dispatch:    # Memungkinkan trigger manual dari UI GitHub
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  laravel-tests:
-    name: Laravel Tests dengan SQLite
+  build-and-deploy:
+    name: Build dan Deploy ke GitHub Pages
     runs-on: ubuntu-latest
     
     steps:
-<<<<<<< HEAD
-    - uses: actions/checkout@v3
+    - name: Checkout kode
+      uses: actions/checkout@v3
     
-    # Setup PHP dengan versi 8.4.5 sesuai dengan environment development
+    # Setup PHP 8.4.5
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.4.5'
         extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, curl, zip, xml
         tools: composer:v2
-        coverage: xdebug
-    
-    # Menggunakan cache untuk Composer
-    - name: Cache Composer packages
-      uses: actions/cache@v3
-      with:
-        path: vendor
-        key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-        restore-keys: ${{ runner.os }}-composer-
     
     # Install dependensi Composer
-    - name: Install Dependencies
-      run: composer install --no-interaction --prefer-dist --optimize-autoloader
-    
-    # Menyalin file .env dan mengonfigurasi SQLite untuk testing
-    - name: Configure environment for testing
-      run: |
-        # Salin .env.example ke .env jika belum ada
-        php -r "file_exists('.env') || copy('.env.example', '.env');"
-        
-        # Konfigurasi database untuk SQLite (hapus konfigurasi MySQL)
-        sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/g' .env
-        sed -i '/DB_HOST=/d' .env
-        sed -i '/DB_PORT=/d' .env
-        sed -i '/DB_DATABASE=/d' .env
-        sed -i '/DB_USERNAME=/d' .env
-        sed -i '/DB_PASSWORD=/d' .env
-        
-        # Gunakan SQLite in-memory untuk testing (performa lebih baik)
-        echo "DB_DATABASE=:memory:" >> .env
-        
-        # Pastikan direktori database ada dan buat file SQLite kosong
-        mkdir -p database
-        touch database/database.sqlite
-    
-    # Generate application key
-    - name: Generate key
-      run: php artisan key:generate
-    
-    # Migrasi dan seed database
-    - name: Migrate database
-      run: php artisan migrate --seed --force
-    
-    # Setup Node.js untuk asset building
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-    
-    # Install dependensi NPM
-    - name: Install NPM dependencies
-      run: npm ci
-    
-    # Build assets
-    - name: Build frontend assets
-      run: npm run build
-    
-    # Menjalankan tests
-    - name: Run tests
-      run: php artisan test
-  
-  build-and-deploy:
-    name: Build dan Deploy ke GitHub Pages
-    needs: laravel-tests
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-=======
-      - uses: actions/checkout@v4
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4.5"
-
-      - name: Install Composer Dependencies
-        run: composer install --no-dev --no-interaction --prefer-dist
-
-      - name: Copy .env
-        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
-
-      - name: Generate Application Key
-        run: php artisan key:generate
-
-      - name: Build Frontend (if using Vite/Mix)
-        run: |
-          # Remove this comment and add your build commands if needed
-          # Example: npm install && npm run build
-          echo "Skipping frontend build"
-
-      - name: Prepare GitHub Pages
-        run: |
-          mkdir -p docs
-          cp -R public/* docs/
-          # Create .nojekyll file to bypass Jekyll processing
-          touch docs/.nojekyll
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: "./docs"
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
->>>>>>> dfd2abfe5236e8f5bffd31ac026de12083aba9ca
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    # Setup PHP dengan versi 8.4.5 untuk build production
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.4.5'
-        extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, curl, zip
-        tools: composer:v2
-    
-    # Install dependensi Composer
-    - name: Install Dependencies
+    - name: Install Dependensi PHP
       run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
     
-    # Konfigurasi environment untuk production deployment
-    - name: Configure environment for production
+    # Konfigurasi environment untuk SQLite
+    - name: Konfigurasi Environment
       run: |
-        # Salin .env.example ke .env jika belum ada
+        # Salin file .env
         php -r "file_exists('.env') || copy('.env.example', '.env');"
         
-        # Setel mode production dan nonaktifkan debug untuk keamanan
+        # Konfigurasi untuk production
         sed -i 's/APP_ENV=local/APP_ENV=production/g' .env
         sed -i 's/APP_DEBUG=true/APP_DEBUG=false/g' .env
         
-        # Konfigurasi database untuk SQLite (hapus konfigurasi MySQL)
+        # Konfigurasi database SQLite
         sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/g' .env
         sed -i '/DB_HOST=/d' .env
         sed -i '/DB_PORT=/d' .env
         sed -i '/DB_DATABASE=/d' .env
         sed -i '/DB_USERNAME=/d' .env
         sed -i '/DB_PASSWORD=/d' .env
-        
-        # Tentukan lokasi database SQLite untuk production
         echo "DB_DATABASE=database/database.sqlite" >> .env
         
-        # Pastikan direktori database ada dan buat file SQLite kosong
+        # Buat database SQLite kosong
         mkdir -p database
         touch database/database.sqlite
     
-    # Generate application key
-    - name: Generate key
+    # Generate key aplikasi
+    - name: Generate Application Key
       run: php artisan key:generate
     
-    # Migrasi dan seed database untuk GitHub Pages (meskipun tidak akan berfungsi di produksi)
-    - name: Prepare database
-      run: php artisan migrate --seed --force
+    # Migrate database (opsional)
+    - name: Migrate Database
+      run: php artisan migrate --force
     
     # Setup Node.js
     - name: Setup Node.js
@@ -188,108 +67,45 @@ jobs:
         node-version: '18'
         cache: 'npm'
     
-    # Install dependensi NPM
-    - name: Install NPM dependencies
-      run: npm ci
-    
-    # Build assets untuk production
-    - name: Build frontend assets for production
-      run: npm run build
-    
-    # Menghasilkan konten statis untuk GitHub Pages menggunakan script khusus
-    - name: Generate static content
+    # Install dependensi NPM dan build assets
+    - name: Install & Build Frontend
       run: |
-        # Buat direktori scripts jika belum ada
-        mkdir -p scripts
+        npm ci
+        npm run build
+    
+    # Persiapan build statis
+    - name: Persiapan Direktori Build
+      run: |
+        # Buat direktori untuk konten statis
+        mkdir -p _site
         
-        # Salin script static-build.php dari repository
-        # Jika script tidak ada di repository, buat dari template
-        if [ ! -f "scripts/static-build.php" ]; then
-          cat > scripts/static-build.php << 'EOF'
-<?php
-/**
- * Script untuk menghasilkan versi statis dari aplikasi Laravel
- */
-
-// Daftar route yang akan di-generate secara statis
-$routes = [
-    '/' => 'index.html',
-    // Tambahkan route lain yang ingin di-generate
-];
-
-// Direktori output untuk file statis
-$outputDir = '_site';
-
-// Pastikan direktori output ada
-if (!is_dir($outputDir)) {
-    mkdir($outputDir, 0755, true);
-}
-
-// Jalankan server PHP untuk mengakses aplikasi
-echo "Memulai server PHP...\n";
-$serverCommand = "php -S localhost:8000 -t public > /dev/null 2>&1 & echo $!";
-$pid = shell_exec($serverCommand);
-$pid = trim($pid);
-
-// Beri waktu server untuk siap
-sleep(3);
-echo "Server berjalan dengan PID: $pid\n";
-
-// Generate file statis untuk setiap route
-foreach ($routes as $route => $outputFile) {
-    echo "Generating: $route -> $outputFile\n";
-    
-    // Buat direktori jika diperlukan (untuk nested routes)
-    $outputPath = $outputDir . '/' . $outputFile;
-    $outputDirname = dirname($outputPath);
-    if (!is_dir($outputDirname)) {
-        mkdir($outputDirname, 0755, true);
-    }
-    
-    // Ambil konten HTML dari route
-    $url = 'http://localhost:8000' . $route;
-    $html = file_get_contents($url);
-    
-    if ($html === false) {
-        echo "Error: Tidak dapat mengakses $url\n";
-        continue;
-    }
-    
-    // Simpan ke file
-    file_put_contents($outputPath, $html);
-    echo "Berhasil di-generate: $outputPath\n";
-}
-
-// Matikan server
-echo "Mematikan server PHP...\n";
-shell_exec("kill $pid");
-
-// Salin semua aset publik ke direktori output
-shell_exec("cp -r public/* $outputDir/");
-
-// Buat file .nojekyll untuk mencegah pemrosesan Jekyll
-file_put_contents("$outputDir/.nojekyll", '');
-
-// Buat file .htaccess untuk SPA fallback routing
-$htaccess = <<<'HTACCESS'
-RewriteEngine On
-RewriteBase /
-RewriteRule ^index\.html$ - [L]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
-HTACCESS;
-file_put_contents("$outputDir/.htaccess", $htaccess);
-
-// Buat file 404.html untuk SPA routing
-$html404 = <<<'HTML'
+        # Salin semua file dari public ke _site
+        cp -r public/* _site/
+        
+        # PENTING: Buat file .nojekyll untuk menonaktifkan pemrosesan Jekyll
+        touch _site/.nojekyll
+        
+        # Salin database SQLite (jika diperlukan)
+        cp database/database.sqlite _site/database.sqlite
+        
+        # Buat halaman index.html statis jika belum ada
+        if [ ! -f "_site/index.html" ]; then
+          php -S localhost:8000 -t public &
+          SERVER_PID=$!
+          sleep 3
+          curl -s http://localhost:8000 > _site/index.html
+          kill $SERVER_PID
+        fi
+        
+        # Buat file 404.html untuk SPA routing
+        cat > _site/404.html << 'EOF'
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
     <title>Redirecting...</title>
     <script>
-        // Redirect semua 404 ke halaman utama untuk SPA routing
+        sessionStorage.setItem('redirect_path', window.location.pathname);
         window.location.href = "/";
     </script>
 </head>
@@ -297,26 +113,13 @@ $html404 = <<<'HTML'
     <p>Redirecting to homepage...</p>
 </body>
 </html>
-HTML;
-file_put_contents("$outputDir/404.html", $html404);
-
-echo "Build statis selesai!\n";
 EOF
-        fi
-        
-        # Jalankan script static-build
-        php scripts/static-build.php
-        
-        # Pastikan database SQLite tersedia di deployment (opsional)
-        cp database/database.sqlite _site/database.sqlite
-        
-        # Simpan informasi route Laravel untuk referensi
-        php artisan route:list --json > _site/routes.json
     
     # Deploy ke GitHub Pages
-    - name: Deploy to GitHub Pages
+    - name: Deploy ke GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
       with:
-        folder: _site # Folder yang akan di-deploy
-        branch: gh-pages # Branch tujuan untuk GitHub Pages
-        clean: true # Membersihkan artifact lama
+        folder: _site
+        branch: gh-pages
+        # PENTING: Pastikan Jekyll dinonaktifkan
+        clean-exclude: .nojekyll
