@@ -41,6 +41,13 @@ jobs:
         run: |
           mkdir -p docs
           cp -R public/* docs/
+          # Create necessary directories for Jekyll
+          mkdir -p docs/assets/css
+          # Create a basic Jekyll structure
+          echo '---' > docs/assets/css/style.scss
+          echo '---' >> docs/assets/css/style.scss
+          echo '@import "{{ site.theme }}";' >> docs/assets/css/style.scss
+          # Ensure .nojekyll is present
           touch docs/.nojekyll
 
       - name: Upload artifact
