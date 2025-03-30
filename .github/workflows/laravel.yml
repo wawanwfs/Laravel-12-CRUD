@@ -20,7 +20,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3.0"
+          php-version: "8.4.5"
 
       - name: Install Composer Dependencies
         run: composer install --no-dev --no-interaction --prefer-dist
@@ -33,12 +33,13 @@ jobs:
 
       - name: Build Frontend (jika menggunakan Vite/Mix)
         run: |
+          # Remove this comment and add your build commands if needed
+          # Example: npm install && npm run build
+          echo "Skipping frontend build"
+
       - name: Prepare GitHub Pages
         run: |
           mkdir -p docs
-          cp -R public/* docs/
-          touch docs/.nojekyll
-          mkdir -p public
           cp -R public/* docs/
           touch docs/.nojekyll
 
