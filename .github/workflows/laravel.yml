@@ -31,7 +31,7 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
-      - name: Build Frontend (jika menggunakan Vite/Mix)
+      - name: Build Frontend (if using Vite/Mix)
         run: |
           # Remove this comment and add your build commands if needed
           # Example: npm install && npm run build
@@ -41,13 +41,7 @@ jobs:
         run: |
           mkdir -p docs
           cp -R public/* docs/
-          # Create necessary directories for Jekyll
-          mkdir -p docs/assets/css
-          # Create a basic Jekyll structure
-          echo '---' > docs/assets/css/style.scss
-          echo '---' >> docs/assets/css/style.scss
-          echo '@import "{{ site.theme }}";' >> docs/assets/css/style.scss
-          # Ensure .nojekyll is present
+          # Create .nojekyll file to bypass Jekyll processing
           touch docs/.nojekyll
 
       - name: Upload artifact
