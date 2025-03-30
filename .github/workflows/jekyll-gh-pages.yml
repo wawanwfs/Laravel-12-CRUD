@@ -1,4 +1,4 @@
-name: Deploy Laravel to GitHub Pages
+name: Deploy Laravel Public Folder to GitHub Pages
 
 on:
   push:
@@ -36,9 +36,14 @@ jobs:
       # Konfigurasi Laravel
       - name: Konfigurasi Laravel
         run: |
+          # Buat file .env jika belum ada
           php -r "file_exists('.env') || copy('.env.example', '.env');"
+          
+          # Konfigurasi untuk production
           sed -i 's/APP_ENV=local/APP_ENV=production/g' .env
           sed -i 's/APP_DEBUG=true/APP_DEBUG=false/g' .env
+          
+          # Konfigurasi SQLite
           sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/g' .env
           sed -i '/DB_HOST=/d' .env
           sed -i '/DB_PORT=/d' .env
@@ -46,103 +51,157 @@ jobs:
           sed -i '/DB_USERNAME=/d' .env
           sed -i '/DB_PASSWORD=/d' .env
           echo "DB_DATABASE=database/database.sqlite" >> .env
+          
+          # Persiapkan database
           mkdir -p database
           touch database/database.sqlite
+          
+          # Generate application key
           php artisan key:generate
       
-      # Setup Node.js untuk asset building
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      # Install dan build frontend assets
-      - name: Install & build frontend
+      # Setup Node.js dan build frontend assets
+      - name: Setup Node.js dan build assets
         run: |
           npm ci
           npm run build
       
-      # Konfigurasi GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      
-      # Persiapkan konten statis dengan pemeriksaan rinci
-      - name: Persiapkan konten statis
+      # LANGKAH PENTING: Konversi index.php menjadi index.html statis untuk GitHub Pages
+      - name: Buat index.html statis
         run: |
-          # Buat direktori untuk konten statis
-          mkdir -p _site
+          # Pastikan direktori public sudah ada
+          mkdir -p public
           
-          # Buat file .nojekyll untuk menonaktifkan Jekyll
-          touch _site/.nojekyll
-          
-          # Salin semua file dari public ke _site
-          cp -r public/* _site/
-          
-          # PENTING: Pastikan ada index.html di root
-          echo "Membuat index.html statis..."
-          
-          # Jalankan server PHP dan ambil konten halaman utama
-          php -S localhost:8000 -t public &
-          SERVER_PID=$!
-          
-          # Tunggu server siap
-          sleep 5
-          
-          # Verifikasi server berjalan
-          curl -v http://localhost:8000/ || echo "Peringatan: Tidak dapat terhubung ke server Laravel"
-          
-          # Ambil konten halaman utama ke index.html
-          curl -L -s http://localhost:8000/ > _site/index.html
-          
-          # Periksa ukuran file index.html
-          ls -l _site/index.html
-          
-          # Jika file terlalu kecil, buat file minimal
-          if [ ! -s "_site/index.html" ] || [ $(stat -c%s "_site/index.html") -lt 100 ]; then
-            echo "Membuat index.html fallback minimal..."
-            cat > _site/index.html << 'EOF'
+          # Buat file index.html statis di public
+          cat > public/index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Laravel 12 CRUD</title>
+    <title>Laravel 12 CRUD Application</title>
+    <link rel="stylesheet" href="css/app.css">
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #333; }
-        .note { background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin-bottom: 20px; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 5px;
+        }
+        header {
+            margin-bottom: 30px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 20px;
+        }
+        h1 {
+            color: #3490dc;
+            margin-top: 0;
+        }
+        .note {
+            background-color: #f0f4f8;
+            border-left: 4px solid #3490dc;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #3490dc;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: #2779bd;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature-card {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            padding: 20px;
+            background-color: white;
+        }
+        .feature-card h3 {
+            margin-top: 0;
+            color: #3490dc;
+        }
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Laravel 12 CRUD Application</h1>
+        <header>
+            <h1>Laravel 12 CRUD Application</h1>
+            <p>Aplikasi CRUD sederhana menggunakan Laravel 12 dan SQLite</p>
+        </header>
+
         <div class="note">
-            <p>This is a static version of a Laravel 12 application hosted on GitHub Pages.</p>
-            <p>Note that GitHub Pages only supports static content, so full Laravel functionality is not available.</p>
+            <p><strong>Catatan:</strong> Ini adalah versi statis dari aplikasi Laravel 12 yang di-host menggunakan GitHub Pages. Karena GitHub Pages hanya mendukung konten statis, fungsionalitas backend Laravel tidak tersedia di sini.</p>
         </div>
-        <p>Please check the <a href="https://github.com/wawanwfs/Laravel-12-CRUD">repository</a> for the complete project.</p>
+
+        <p>Repositori ini berisi contoh implementasi operasi CRUD (Create, Read, Update, Delete) menggunakan Laravel 12, framework PHP modern dengan fitur-fitur powerful untuk pengembangan web.</p>
+
+        <a href="https://github.com/wawanwfs/Laravel-12-CRUD" class="btn">Lihat Repositori GitHub</a>
+
+        <div class="features">
+            <div class="feature-card">
+                <h3>Create</h3>
+                <p>Tambahkan data baru ke aplikasi dengan form input yang validasi lengkap.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Read</h3>
+                <p>Tampilkan dan filter data dari database dengan tampilan yang terorganisir dan responsif.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Update</h3>
+                <p>Edit dan perbarui data yang sudah ada dengan validasi data yang menyeluruh.</p>
+            </div>
+            <div class="feature-card">
+                <h3>Delete</h3>
+                <p>Hapus data yang tidak diperlukan dengan konfirmasi untuk mencegah penghapusan yang tidak disengaja.</p>
+            </div>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 - Laravel 12 CRUD Application</p>
+        </footer>
     </div>
+
     <script>
-        // Redirect ke halaman utama jika ada path redirect tersimpan
+        // Script untuk menangani routing SPA
         const redirectPath = sessionStorage.getItem('redirect_path');
         if (redirectPath) {
             console.log('Redirected from:', redirectPath);
             sessionStorage.removeItem('redirect_path');
-            // Tambahkan logika penanganan router di sini jika diperlukan
         }
     </script>
 </body>
 </html>
 EOF
-          fi
-          
-          # Matikan server PHP
-          kill $SERVER_PID || true
           
           # Buat file 404.html untuk SPA routing
-          cat > _site/404.html << 'EOF'
+          cat > public/404.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -173,15 +232,18 @@ EOF
 </html>
 EOF
           
-          # Tampilkan struktur direktori final untuk debugging
-          echo "=== Struktur direktori _site ==="
-          find _site -type f | sort
+          # Pastikan ada file .nojekyll di folder public
+          touch public/.nojekyll
       
-      # Upload artifact untuk deployment
+      # Konfigurasi GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      
+      # Upload folder public sebagai artifact
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: 'public'  # PENTING: Menggunakan folder public sebagai sumber
 
   deploy:
     environment:
