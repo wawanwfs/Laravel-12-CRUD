@@ -72,9 +72,18 @@ class ProductController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            // Store old image name to delete after uploading new one
+            $oldImage = $product->image;
+
+            // Upload new image
             $imageName = time() . '.' . $request->image->extension();
             $request->image->move(public_path('images'), $imageName);
             $product->image = $imageName;
+
+            // Delete old image if it exists
+            if (!empty($oldImage) && file_exists(public_path('images/' . $oldImage))) {
+                unlink(public_path('images/' . $oldImage));
+            }
         }
 
         $product->title = $request->title;
