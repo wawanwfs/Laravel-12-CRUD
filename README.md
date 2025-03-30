@@ -7,6 +7,80 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Laravel 12 CRUD Application
+
+This is a simple CRUD (Create, Read, Update, Delete) application built with Laravel 12.
+
+### Requirements
+
+-   PHP 8.2 or higher
+-   Composer
+-   MySQL or another supported database
+-   Node.js and npm
+
+### Installation
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/yourusername/laravel-12-crud.git
+    cd laravel-12-crud
+    ```
+
+2. Install PHP dependencies:
+
+    ```bash
+    composer install
+    ```
+
+3. Install front-end dependencies:
+
+    ```bash
+    npm install
+    ```
+
+4. Copy the example environment file:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+5. Generate an application key:
+
+    ```bash
+    php artisan key:generate
+    ```
+
+6. Configure your database in the `.env` file:
+
+    ```
+    DB_CONNECTION=mysql
+    DB_HOST=127.0.0.1
+    DB_PORT=3306
+    DB_DATABASE=laravel_12_crud
+    DB_USERNAME=root
+    DB_PASSWORD=
+    ```
+
+7. Run the migrations:
+
+    ```bash
+    php artisan migrate
+    ```
+
+8. Build front-end assets:
+
+    ```bash
+    npm run build
+    ```
+
+9. Start the development server:
+    ```bash
+    php artisan serve
+    ```
+
+Your application should now be running at [http://localhost:8000](http://localhost:8000).
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
@@ -64,140 +138,3 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-
-# Panduan Deployment Laravel 12 ke GitHub Pages
-
-Berikut adalah panduan langkah demi langkah untuk men-deploy aplikasi Laravel 12 ke GitHub Pages menggunakan workflow yang telah saya siapkan.
-
-## 1. Struktur Workflow
-
-Workflow yang telah saya siapkan terdiri dari dua pekerjaan utama:
-
-1. **laravel-tests**: Menjalankan pengujian Laravel untuk memastikan aplikasi berfungsi dengan baik
-2. **deploy-gh-pages**: Men-deploy aplikasi ke GitHub Pages setelah pengujian berhasil
-
-## 2. Persiapan Repositori
-
-1. **Buat file workflow GitHub Actions**:
-
-    - Buat direktori `.github/workflows/` di root repositori Anda jika belum ada
-    - Buat file `laravel.yml` dalam direktori tersebut dan salin konten workflow yang telah saya berikan
-
-2. **Pastikan struktur file yang diperlukan telah ada**:
-    - File `.env.example` di root repositori
-    - File `.htaccess` di folder `public/` (gunakan konten yang telah saya sediakan)
-
-## 3. Menyesuaikan File .env untuk GitHub Pages
-
-Penting untuk memperhatikan konfigurasi `.env` yang akan dibuat selama proses deployment. Workflow akan:
-
-1. Menyalin `.env.example` ke `.env`
-2. Mengubah nilai-nilai berikut:
-    - `APP_ENV=production`
-    - `APP_DEBUG=false`
-    - `APP_URL=https://[username].github.io/[repo-name]`
-
-Jika Anda memerlukan konfigurasi khusus, Anda dapat menyesuaikan bagian `Copy .env for Production` dalam workflow.
-
-## 4. Memahami Proses Deployment ke GitHub Pages
-
-Workflow akan:
-
-1. Membuat direktori `gh-pages-build/`
-2. Menyalin seluruh konten folder `public/` ke direktori tersebut
-3. Membuat file `index.php` khusus untuk GitHub Pages
-4. Membuat file `.nojekyll` untuk mencegah pemrosesan Jekyll
-5. Men-deploy konten direktori ke branch `gh-pages`
-
-## 5. Mengaktifkan GitHub Pages
-
-Setelah workflow berhasil dijalankan:
-
-1. Buka repositori GitHub Anda
-2. Klik tab "Settings"
-3. Pilih "Pages" dari menu sidebar
-4. Pada bagian "Source", pilih branch "gh-pages" dan folder "/" (root)
-5. Klik "Save"
-
-Website Anda akan tersedia di URL: `https://[username].github.io/[repo-name]/`
-
-## 6. Batasan dan Catatan Penting
-
-GitHub Pages tidak mendukung eksekusi kode PHP secara native. Berikut adalah yang perlu Anda ketahui:
-
-1. **Apa yang akan berfungsi**:
-
-    - Semua aset statis (CSS, JS, gambar)
-    - Frontend yang dibangun dengan Vite/Laravel Mix
-    - File HTML statis
-
-2. **Apa yang tidak akan berfungsi**:
-
-    - Eksekusi kode PHP
-    - Rute backend Laravel
-    - Akses database melalui PHP
-
-3. **Solusi untuk fungsionalitas backend**:
-    - Gunakan API eksternal yang di-hosting di tempat lain
-    - Integrasikan dengan layanan serverless
-    - Gunakan penyedia hosting yang mendukung PHP untuk backend
-
-## 7. Cara Membuat Aplikasi Laravel Kompatibel dengan GitHub Pages
-
-Untuk membuat aplikasi Laravel optimal untuk GitHub Pages:
-
-1. **Gunakan pendekatan SPA (Single Page Application)**:
-
-    - Bangun frontend dengan Vue.js, React, atau library JS lainnya
-    - Gunakan Vite/Laravel Mix untuk mengompilasi aset
-    - Implementasikan routing frontend di sisi klien
-
-2. **Pisahkan backend dan frontend**:
-
-    - Deploy backend Laravel ke hosting PHP terpisah
-    - Konsumsi API dari backend di aplikasi frontend
-
-3. **Gunakan Static Site Generation**:
-    - Pertimbangkan untuk menghasilkan halaman statis untuk konten yang tidak sering berubah
-    - Gunakan fitur caching untuk meningkatkan performa
-
-## 8. Pemecahan Masalah Umum
-
-### Aset tidak dimuat
-
--   Pastikan jalur aset relatif atau menggunakan `{{ asset() }}` dengan base URL yang benar
--   Periksa Console browser untuk error 404 pada aset
-
-### Halaman 404 saat mengakses rute
-
--   GitHub Pages tidak mendukung rute Laravel
--   Implementasikan routing sisi klien untuk SPA
-
-### Error dalam proses build
-
--   Periksa log GitHub Actions untuk detail error
--   Pastikan dependensi NPM dan Composer terpasang dengan benar
-
-## 9. Contoh Konfigurasi Tambahan
-
-### Jika Menggunakan React dengan Laravel:
-
-```javascript
-// Sesuaikan dalam webpack.mix.js atau vite.config.js
-// untuk memastikan semua aset dibangun dengan benar
-```
-
-### Jika Menggunakan Vue.js dengan Laravel:
-
-```javascript
-// Konfigurasi router Vue.js untuk mode history dengan base URL yang benar
-// yang kompatibel dengan GitHub Pages
-```
-
-## 10. Sumber Daya Tambahan
-
--   [Dokumentasi GitHub Pages](https://docs.github.com/en/pages)
--   [Dokumentasi Laravel](https://laravel.com/docs)
--   [Dokumentasi GitHub Actions](https://docs.github.com/en/actions)
-
-Semoga panduan ini membantu Anda men-deploy aplikasi Laravel 12 ke GitHub Pages dengan sukses!
