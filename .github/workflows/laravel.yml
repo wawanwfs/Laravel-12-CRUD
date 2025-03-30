@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+<<<<<<< HEAD
     - uses: actions/checkout@v3
     
     # Setup PHP dengan versi 8.4.5 sesuai dengan environment development
@@ -90,6 +91,46 @@ jobs:
     name: Build dan Deploy ke GitHub Pages
     needs: laravel-tests
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+=======
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4.5"
+
+      - name: Install Composer Dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Copy .env
+        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      - name: Build Frontend (if using Vite/Mix)
+        run: |
+          # Remove this comment and add your build commands if needed
+          # Example: npm install && npm run build
+          echo "Skipping frontend build"
+
+      - name: Prepare GitHub Pages
+        run: |
+          mkdir -p docs
+          cp -R public/* docs/
+          # Create .nojekyll file to bypass Jekyll processing
+          touch docs/.nojekyll
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./docs"
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+>>>>>>> dfd2abfe5236e8f5bffd31ac026de12083aba9ca
     runs-on: ubuntu-latest
     
     steps:
