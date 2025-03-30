@@ -1,10 +1,11 @@
-name: Laravel
+name: Laravel GitHub Pages
 
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  workflow_dispatch:
 
 jobs:
   laravel-tests:
@@ -75,15 +76,13 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-  deploy-gh-pages:
+  build-and-deploy:
     needs: laravel-tests
     if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0 # Mengambil semua riwayat untuk perhitungan versi
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -92,7 +91,7 @@ jobs:
           extensions: mbstring, dom, fileinfo, mysql, gd, curl, zip, xml
           tools: composer:v2
 
-      - name: Install Composer Dependencies
+      - name: Install Composer Dependencies (Production Only)
         run: composer install --no-dev --prefer-dist --no-progress --optimize-autoloader
       
       - name: Copy .env for Production
@@ -128,41 +127,55 @@ jobs:
           APP_DEBUG: false
           APP_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
 
-      - name: Prepare GitHub Pages Directory
+      # Siapkan file .htaccess untuk Apache
+      - name: Create .htaccess file
         run: |
-          # Buat direktori untuk GitHub Pages
-          mkdir -p gh-pages-build
-          
-          # Salin seluruh konten folder public ke direktori gh-pages-build
-          cp -R public/* gh-pages-build/
-          
-          # Salin .htaccess
-          cp public/.htaccess gh-pages-build/ 2>/dev/null || true
-          
-          # Buat file index.php untuk GitHub Pages
-          cat > gh-pages-build/index.php << 'EOL'
-<?php
-// File ini digunakan untuk GitHub Pages
-// Cek jika ada file index.html dan arahkan ke sana
-if (file_exists(__DIR__ . '/index.html')) {
-    include_once(__DIR__ . '/index.html');
-    exit;
-}
-// Jika tidak, tampilkan halaman informasi
-echo "<h1>Laravel Application</h1>";
-echo "<p>Ini adalah aplikasi Laravel yang di-deploy ke GitHub Pages.</p>";
-echo "<p>Catatan: GitHub Pages tidak mendukung eksekusi PHP secara native.</p>";
-echo "<p>Aset statis dan frontend JS yang dibuild dengan Vite/Mix akan berfungsi dengan baik.</p>";
-EOL
-          
-          # Buat file .nojekyll untuk mencegah pemrosesan Jekyll
-          touch gh-pages-build/.nojekyll
-          
-          # Buat file README.md untuk informasi
-          cat > gh-pages-build/README.md << 'EOL'
-# Laravel Application on GitHub Pages
+          cat > public/.htaccess << 'EOL'
+# Aktivasi modul rewrite
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    
+    # Redirect Trailing Slashes...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+    
+    # Serve Existing Files and Directories...
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Handle Front Controller...
+    RewriteRule ^ index.php [L]
+</IfModule>
 
-Ini adalah aplikasi Laravel yang di-deploy ke GitHub Pages.
+# Disable directory listing
+Options -Indexes
+
+# Set default character set
+AddDefaultCharset UTF-8
+EOL
+
+      # Deploy ke GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: public        # Folder yang berisi konten yang akan di-deploy
+          branch: gh-pages      # Branch tujuan untuk deployment
+          clean: true           # Hapus file-file yang tidak ada di commit terbaru
+          
+      # Buat file README.md di branch gh-pages
+      - name: Create README.md for gh-pages
+        run: |
+          mkdir -p gh-pages-temp
+          cat > gh-pages-temp/README.md << 'EOL'
+# Laravel 12 Application
+
+Ini adalah aplikasi Laravel 12 yang di-deploy ke GitHub Pages.
 
 ## Catatan Penting
 
@@ -174,10 +187,10 @@ GitHub Pages tidak mendukung eksekusi PHP secara native. Deployment ini berisi:
 
 Untuk fungsionalitas backend PHP, gunakan hosting yang mendukung PHP atau layanan serverless.
 EOL
-
-      - name: Deploy to GitHub Pages
+          
+      - name: Deploy README to gh-pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: gh-pages-build   # Folder yang akan dideploy
-          branch: gh-pages         # Branch tujuan
-          clean: true              # Hapus file yang tidak ada di commit terbaru
+          folder: gh-pages-temp
+          branch: gh-pages
+          clean: false        # Tidak menghapus file yang sudah ada
