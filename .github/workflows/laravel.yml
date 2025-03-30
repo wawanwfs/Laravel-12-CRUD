@@ -1,119 +1,60 @@
-name: Deploy Laravel 12 to GitHub Pages
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
-# Set izin yang diperlukan untuk GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Hanya izinkan satu deployment concurrent
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
-
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4.5'
-          extensions: mbstring, dom, fileinfo, sqlite3, pdo_sqlite, curl, zip, xml
-          tools: composer:v2
+          php-version: "8.4.5"
 
-      - name: Install PHP Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
+      - name: Install Composer Dependencies
+        run: composer install --no-dev --no-interaction --prefer-dist
 
-      # Konfigurasi environment SQLite
-      - name: Configure Laravel
+      - name: Copy .env
+        run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      - name: Build Frontend (jika menggunakan Vite/Mix)
         run: |
-          php -r "file_exists('.env') || copy('.env.example', '.env');"
-          sed -i 's/APP_ENV=local/APP_ENV=production/g' .env
-          sed -i 's/APP_DEBUG=true/APP_DEBUG=false/g' .env
-          sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/g' .env
-          sed -i '/DB_HOST=/d' .env
-          sed -i '/DB_PORT=/d' .env
-          sed -i '/DB_DATABASE=/d' .env
-          sed -i '/DB_USERNAME=/d' .env
-          sed -i '/DB_PASSWORD=/d' .env
-          echo "DB_DATABASE=database/database.sqlite" >> .env
-          mkdir -p database
-          touch database/database.sqlite
-          php artisan key:generate
+          # Remove this comment and add your build commands if needed
+          # Example: npm install && npm run build
+          echo "Skipping frontend build"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install & Build Frontend
+      - name: Prepare GitHub Pages
         run: |
-          npm ci
-          npm run build
+          mkdir -p docs
+          cp -R public/* docs/
+          # Create necessary directories for Jekyll
+          mkdir -p docs/assets/css
+          # Create a basic Jekyll structure
+          echo '---' > docs/assets/css/style.scss
+          echo '---' >> docs/assets/css/style.scss
+          echo '@import "{{ site.theme }}";' >> docs/assets/css/style.scss
+          # Ensure .nojekyll is present
+          touch docs/.nojekyll
 
-      # PENTING: Konfigurasi GitHub Pages
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      # Buat direktori build tanpa Jekyll
-      - name: Build Static Files
-        run: |
-          # Buat direktori untuk file statis
-          mkdir -p _site
-          
-          # SANGAT PENTING: Buat file .nojekyll untuk menonaktifkan Jekyll
-          touch _site/.nojekyll
-          
-          # Salin semua file publik ke direktori output
-          cp -r public/* _site/
-          
-          # Buat halaman index.html statis (jika belum ada)
-          if [ ! -f "_site/index.html" ]; then
-            php -S localhost:8000 -t public &
-            SERVER_PID=$!
-            sleep 3
-            curl -L -s http://localhost:8000 > _site/index.html
-            kill $SERVER_PID
-          fi
-          
-          # Tambahkan file 404.html untuk SPA routing (opsional)
-          cat > _site/404.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Page Not Found</title>
-    <script>
-        // Redirect ke halaman utama dengan path asli
-        sessionStorage.setItem('redirect_path', window.location.pathname);
-        window.location.href = "/";
-    </script>
-</head>
-<body>
-    <h1>Page Not Found</h1>
-    <p>Redirecting to homepage...</p>
-</body>
-</html>
-EOF
-
-      # Upload artifact untuk deployment
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: "./docs"
 
-  # Deploy job
   deploy:
     environment:
       name: github-pages
