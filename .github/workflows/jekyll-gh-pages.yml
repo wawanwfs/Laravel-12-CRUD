@@ -1,25 +1,20 @@
 name: Deploy Laravel to GitHub Pages
 
 on:
-  # Jalankan ketika push ke branch main
   push:
     branches: ["main"]
-  # Memungkinkan menjalankan workflow manual dari tab Actions
   workflow_dispatch:
 
-# Set izin yang diperlukan untuk deployment
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Izinkan hanya satu deployment berjalan pada satu waktu
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     steps:
@@ -41,14 +36,9 @@ jobs:
       # Konfigurasi Laravel
       - name: Konfigurasi Laravel
         run: |
-          # Buat file .env jika belum ada
           php -r "file_exists('.env') || copy('.env.example', '.env');"
-          
-          # Konfigurasi untuk production
           sed -i 's/APP_ENV=local/APP_ENV=production/g' .env
           sed -i 's/APP_DEBUG=true/APP_DEBUG=false/g' .env
-          
-          # Konfigurasi SQLite
           sed -i 's/DB_CONNECTION=mysql/DB_CONNECTION=sqlite/g' .env
           sed -i '/DB_HOST=/d' .env
           sed -i '/DB_PORT=/d' .env
@@ -56,12 +46,8 @@ jobs:
           sed -i '/DB_USERNAME=/d' .env
           sed -i '/DB_PASSWORD=/d' .env
           echo "DB_DATABASE=database/database.sqlite" >> .env
-          
-          # Persiapkan database
           mkdir -p database
           touch database/database.sqlite
-          
-          # Generate application key
           php artisan key:generate
       
       # Setup Node.js untuk asset building
@@ -81,44 +67,115 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
       
-      # PENTING: Persiapkan build statis tanpa Jekyll
-      - name: Persiapkan build statis
+      # Persiapkan konten statis dengan pemeriksaan rinci
+      - name: Persiapkan konten statis
         run: |
-          # Buat direktori _site untuk GitHub Pages
+          # Buat direktori untuk konten statis
           mkdir -p _site
           
-          # PENTING: Buat file .nojekyll untuk menonaktifkan Jekyll
+          # Buat file .nojekyll untuk menonaktifkan Jekyll
           touch _site/.nojekyll
           
           # Salin semua file dari public ke _site
           cp -r public/* _site/
           
-          # Buat index.html dengan Laravel server
+          # PENTING: Pastikan ada index.html di root
+          echo "Membuat index.html statis..."
+          
+          # Jalankan server PHP dan ambil konten halaman utama
           php -S localhost:8000 -t public &
           SERVER_PID=$!
-          sleep 3
-          curl -L -s http://localhost:8000 > _site/index.html
-          kill $SERVER_PID
           
-          # Buat halaman 404 untuk SPA routing
-          cat > _site/404.html << 'EOF'
+          # Tunggu server siap
+          sleep 5
+          
+          # Verifikasi server berjalan
+          curl -v http://localhost:8000/ || echo "Peringatan: Tidak dapat terhubung ke server Laravel"
+          
+          # Ambil konten halaman utama ke index.html
+          curl -L -s http://localhost:8000/ > _site/index.html
+          
+          # Periksa ukuran file index.html
+          ls -l _site/index.html
+          
+          # Jika file terlalu kecil, buat file minimal
+          if [ ! -s "_site/index.html" ] || [ $(stat -c%s "_site/index.html") -lt 100 ]; then
+            echo "Membuat index.html fallback minimal..."
+            cat > _site/index.html << 'EOF'
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Page Not Found</title>
-    <script>
-        // Simpan path saat ini dan redirect ke homepage
-        sessionStorage.setItem('redirect_path', window.location.pathname);
-        window.location.href = "/Laravel-12-CRUD/";
-    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laravel 12 CRUD</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #333; }
+        .note { background: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin-bottom: 20px; }
+    </style>
 </head>
 <body>
-    <h1>Page Not Found</h1>
-    <p>Redirecting to homepage...</p>
+    <div class="container">
+        <h1>Laravel 12 CRUD Application</h1>
+        <div class="note">
+            <p>This is a static version of a Laravel 12 application hosted on GitHub Pages.</p>
+            <p>Note that GitHub Pages only supports static content, so full Laravel functionality is not available.</p>
+        </div>
+        <p>Please check the <a href="https://github.com/wawanwfs/Laravel-12-CRUD">repository</a> for the complete project.</p>
+    </div>
+    <script>
+        // Redirect ke halaman utama jika ada path redirect tersimpan
+        const redirectPath = sessionStorage.getItem('redirect_path');
+        if (redirectPath) {
+            console.log('Redirected from:', redirectPath);
+            sessionStorage.removeItem('redirect_path');
+            // Tambahkan logika penanganan router di sini jika diperlukan
+        }
+    </script>
 </body>
 </html>
 EOF
+          fi
+          
+          # Matikan server PHP
+          kill $SERVER_PID || true
+          
+          # Buat file 404.html untuk SPA routing
+          cat > _site/404.html << 'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found</title>
+    <script>
+        // Simpan path saat ini untuk routing SPA
+        const currentPath = window.location.pathname;
+        sessionStorage.setItem('redirect_path', currentPath);
+        
+        // Redirect ke halaman utama dengan mempertimbangkan base path repo
+        window.location.href = '/Laravel-12-CRUD/';
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+        h1 { color: #333; }
+        .message { margin: 30px 0; }
+    </style>
+</head>
+<body>
+    <h1>404 - Page Not Found</h1>
+    <div class="message">
+        <p>The page you're looking for doesn't exist or has been moved.</p>
+        <p>Redirecting to homepage...</p>
+    </div>
+</body>
+</html>
+EOF
+          
+          # Tampilkan struktur direktori final untuk debugging
+          echo "=== Struktur direktori _site ==="
+          find _site -type f | sort
       
       # Upload artifact untuk deployment
       - name: Upload artifact
@@ -126,7 +183,6 @@ EOF
         with:
           path: '_site'
 
-  # Deployment job
   deploy:
     environment:
       name: github-pages
